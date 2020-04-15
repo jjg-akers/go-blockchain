@@ -1,5 +1,11 @@
 package blockchain
 
+import (
+	"bytes"
+	"encoding/gob"
+	"log"
+)
+
 //"fmt"
 
 // TYPES
@@ -12,39 +18,11 @@ type Block struct {
 	Nonce    int
 }
 
-// BlockChain type
-// The chain will be represented through a slice of pointers to individual blocks
-type BlockChain struct {
-	Blocks []*Block
-}
-
-//AddBlock will allow us to add a block to the chain
-func (chain *BlockChain) AddBlock(data string) {
-	// get previous block
-	prevBlock := chain.Blocks[len(chain.Blocks)-1]
-
-	//create current blockchain - need the data and the previous Hash
-	new := CreateBlock(data, prevBlock.Hash)
-
-	// append new block to chain
-	chain.Blocks = append(chain.Blocks, new)
-
-}
-
 //Genesis is a function to create the genisis block
 // first block has hard coded values, does not have link to previous hash
 func Genesis() *Block {
 	// block will have an empty previous hash
 	return CreateBlock("Genesis", []byte{})
-}
-
-// InitBlockChain will initialize a new chain with the genesis block
-func InitBlockChain() *BlockChain {
-	genesisBlock := Genesis()
-
-	newChain := &BlockChain{[]*Block{genesisBlock}}
-	//return &BlockChain{[]*Block{Genesis()}}
-	return newChain
 }
 
 // since we are deriving the hash within the proof of work function, we
@@ -81,4 +59,43 @@ func CreateBlock(data string, prevHash []byte) *Block {
 	//block.DeriveHash()
 
 	return block
+}
+
+// Since Badger DB only accepts slicres of bytes we need a serialize and deserialize function
+
+// Serialize
+func (b *Block) Serialize() []byte {
+	var res bytes.Buffer // Results
+
+	// create an encoder on out results buffer
+	encoder := gob.NewEncoder(&res)
+
+	// this will let us call encode on the block itself
+	err := encoder.Encode(b)
+
+	Handle(err)
+
+	return res.Bytes() // this will just be a byte representation of the block
+}
+
+//Deserialize will take in a slice of bytes and transform it back into block representaiton
+func Deserialize(data []byte) *Block {
+	var block Block
+
+	// Create a byte reader and pass it to decoder
+	decoder := gob.NewDecoder(bytes.NewReader(data))
+
+	err := decoder.Decode(&block)
+
+	Handle(err)
+
+	// Return the reference
+	return &block
+}
+
+//Handle will handle errors
+func Handle(err error) {
+	if err != nil {
+		log.Panic(err)
+	}
 }
